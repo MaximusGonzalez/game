@@ -27,6 +27,7 @@ export default class Game extends Phaser.Scene {
 
     //añado coliders
     backgroundLayer6.setCollisionByProperty({ colider: true });
+    this.physics.world.setBounds(0, 0, 2400, 360);
 
     //creo spawnpoint de objeto (nombre de capa en la que se encuentra el objeto en tiled, (obj) => obj.name === nombre del objeto en tiled)
     const spawnPoint = map.findObject(
@@ -50,14 +51,10 @@ export default class Game extends Phaser.Scene {
       "Zombie"
     );
 
-    this.bullets = this.physics.add.group({
-      inmovable: true,
-      allowGravity: false,
-    });
-
     this.zombie.setCollideWorldBounds(true);
-    this.physics.world.setBounds(0, 0, 2400, 360);
     this.cursors = this.input.keyboard.createCursorKeys();
+
+    this.createBullets();
 
     this.physics.add.collider(this.player, backgroundLayer6);
     this.physics.add.collider(this.zombie, backgroundLayer6);
@@ -76,31 +73,7 @@ export default class Game extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, 480, 240);
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
 
-    this.input.on("pointerdown", (pointer) => {
-      let speed = 300;
-
-      // create bullet
-      let bullet = this.physics.add
-        .image(this.player.x, this.player.y, "Bullet")
-        .setScale(3)
-        .setCircle(1, 0.5, 0.5);
-
-      // DEMO: to shoot in a straightline, just comment the following line in
-
-      // DEMO: QuickFix to destroy the bullet after 1 Second automatically
-      // setTimeout(() => bullet.destroy(), 1000);
-
-      // add bullet to group
-      this.bullets.add(bullet);
-      this.physics.moveTo(
-        bullet,
-        this.input.mousePointer.x,
-        this.input.mousePointer.y + 80,
-        speed
-      );
-
-      //bullet.body.setVelocity(vector.x, vector.y);
-    });
+    this.input.on("pointerdown", this.shoot, this);
   }
 
   update() {
@@ -125,7 +98,63 @@ export default class Game extends Phaser.Scene {
       this.player.setVelocityY(-500);
     }
   }
+
+  createBullets() {
+    this.bullets = this.physics.add.group({
+      inmovable: true,
+      allowGravity: false,
+    });
+
+    this.bullets.createMultiple({
+      classType: Phaser.Physics.Arcade.Sprite,
+      key: "Bullet",
+      frame: 0,
+      visible: false,
+      active: false,
+      repeat: 5,
+      setXY: {
+        x: 400,
+        y: 550,
+      },
+    });
+
+    this.bullets.children.entries.forEach((bullet) => {
+      bullet.setCollideWorldBounds(true);
+      bullet.body.onWorldBounds = true;
+      bullet.body.world.on(
+        "worldbounds",
+        function (body) {
+          if (body.gameObject === this) {
+            this.setActive(false);
+            this.setVisible(false);
+          }
+        },
+        bullet
+      );
+    });
+  }
+
   dañoZombie(zombie, bullet) {
     bullet.destroy();
+  }
+
+  shoot(pointer) {
+    console.log("🚀 ~ file: game.js:142 ~ Game ~ shoot ~ pointer:", pointer.x, pointer.y)
+    console.log(this.cameras.main);
+    
+    let speed = 300;
+    let newX = pointer.x;
+
+    if(this.cameras.main._scrollX > pointer.x){
+      newX+=this.cameras.main._scrollX;
+    }
+
+    // create bullet
+    var bullet = this.bullets.get(this.player.x, this.player.y);
+    if (bullet) {
+      bullet.setActive(true);
+      bullet.setVisible(true);
+      this.physics.moveTo(bullet, newX, pointer.y+80, speed);
+    }
   }
 }
